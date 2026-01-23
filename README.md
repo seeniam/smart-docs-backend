@@ -1,4 +1,4 @@
-# Desafio Técnico – Smart Docs (Supabase + Embeddings + Q&A)
+# Desafio Técnico – FRAKTAL (Supabase + Embeddings + Q&A)
 
 Backend do sistema de notas com busca semântica e chat Q&A, usando Supabase (Postgres + RLS + Triggers + Edge Functions) e OpenAI.
 
@@ -43,7 +43,6 @@ Configurar em **Supabase Dashboard → Edge Functions → Secrets**:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-> Não commitar nenhum `.env*` com segredos.
 
 ## Como aplicar no Supabase Cloud (migrations)
 
@@ -52,11 +51,11 @@ Este projeto foi construído e testado no Supabase Cloud. Para reproduzir:
 1. Abra **SQL Editor** no Supabase.
 2. Execute os arquivos em `backend/supabase/migrations/` na ordem (01 → 04).
 
-## Teste rápido no Supabase Cloud (5 minutos)
+## Teste rápido no Supabase Cloud
 
 ### 1) Inserir uma nota
 No SQL Editor (use um UUID real de usuário):
 
 ```sql
 insert into documents (content, user_id)
-values ('Minha nota de teste', 'UUID_REAL_DO_USUARIO');
+values ('Minha nota de teste', 'UUID_DO_USUARIO');
