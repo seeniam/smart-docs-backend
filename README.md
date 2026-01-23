@@ -59,3 +59,63 @@ No SQL Editor (use um UUID real de usuário):
 ```sql
 insert into documents (content, user_id)
 values ('Minha nota de teste', 'UUID_DO_USUARIO');
+```
+
+### 2) Verificar job enfileirado
+```sql
+select id, document_id, status, attempts, last_error, created_at
+from document_embedding_jobs
+order by created_at desc
+limit 5;
+```
+
+Esperado: status = 'pending'.
+
+### 3) Rodar worker (Edge Function)
+
+No Dashboard:
+
+Edge Functions → generate-embedding
+
+Test → POST
+
+Body {}
+
+Esperado: retorno com processed: 1 e job done.
+
+### 4) Confirmar embedding gravado
+```sql
+select
+  content,
+  embedding is not null as gerou_embedding,
+  vector_dims(embedding) as dims
+from documents
+order by created_at desc
+limit 1;
+```
+
+Esperado: gerou_embedding = true e dims = 1536.
+
+### 5) Testar Q&A (Edge Function)
+
+No Dashboard:
+
+Edge Functions → answer-question
+
+Test → POST
+
+Body:
+
+{
+  "question": "Sobre o que falam minhas notas?",
+  "top_k": 5
+}
+
+
+Esperado: JSON com answer e sources (IDs das notas utilizadas).
+
+Observações
+
+O processamento de embeddings é assíncrono (fila + worker), evitando acoplamento com o frontend.
+
+A avaliação pode ser feita pelo comportamento na demo e pelo código (migrations + edge functions).
