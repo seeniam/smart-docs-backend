@@ -3,7 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import OpenAI from "https://esm.sh/openai@4";
 
 // ===== ENV VARS =====
-// tenta SUPABASE_URL e cai para PROJECT_URL
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("PROJECT_URL");
 const SUPABASE_SERVICE_ROLE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY");
@@ -14,8 +13,30 @@ function mustEnv(name: string, value: string | undefined): string {
   return value;
 }
 
+// ===== CORS =====
+// Comece com "*" (debug). Depois dá pra trocar por allowlist sem dor.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, apikey, content-type, x-client-info, x-supabase-auth",
+};
+
 serve(async (req) => {
+  // 1) Preflight CORS (o mais importante no seu bug)
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
+    // 2) Só aceitamos POST
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        status: 405,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const text: string = body.text;
     const topK: number = Number(body.top_k ?? 1);
@@ -25,13 +46,15 @@ serve(async (req) => {
     if (!text || typeof text !== "string" || text.trim().length < 10) {
       return new Response(JSON.stringify({ match: null }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const supabase = createClient(
       mustEnv("SUPABASE_URL/PROJECT_URL", SUPABASE_URL),
       mustEnv("SUPABASE_SERVICE_ROLE_KEY/SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY),
+      // Não é obrigatório aqui, mas evita surpresas de header/cabeçalho
+      { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
     );
 
     const openai = new OpenAI({
@@ -56,7 +79,7 @@ serve(async (req) => {
     if (!matches || matches.length === 0) {
       return new Response(JSON.stringify({ match: null }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -65,7 +88,7 @@ serve(async (req) => {
     if (best.similarity < minSimilarity) {
       return new Response(JSON.stringify({ match: null }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -77,15 +100,16 @@ serve(async (req) => {
           content: String(best.content ?? "").slice(0, 300),
         },
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("suggest-similar error:", message);
 
+    // 3) IMPORTANTE: erro também precisa de CORS, senão o browser oculta a resposta
     return new Response(JSON.stringify({ error: "Internal error", detail: message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
