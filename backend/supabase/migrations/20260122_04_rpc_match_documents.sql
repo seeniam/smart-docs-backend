@@ -1,20 +1,20 @@
-create or replace function public.match_documents(
+create or replace function match_documents_for_user(
   query_embedding vector(1536),
-  match_count int
+  match_count int default 5
 )
 returns table (
   id uuid,
   content text,
   similarity float
 )
-language sql
+language sql stable
 as $$
   select
     d.id,
     d.content,
     1 - (d.embedding <=> query_embedding) as similarity
-  from public.documents d
-  where d.embedding is not null
+  from documents d
+  where d.user_id = auth.uid()
   order by d.embedding <=> query_embedding
   limit match_count;
 $$;
